@@ -15,7 +15,7 @@ export const adminService = {
       console.log('Iniciando login de administrador con:', { username });
       
       // Usando el nuevo puerto 3333 para evitar conflictos
-      const API_URL = 'http://localhost:8080';
+      const API_URL = 'http://localhost:3333';
 
       console.log('Usando API URL:', API_URL);
       
@@ -84,7 +84,7 @@ export const adminService = {
 
       // Obtener nonce del servidor
       const nonceResponse = await fetch(
-        `http://localhost:8080/api/admin/nonce`,
+        `http://localhost:3333/api/admin/nonce`,
         {
           headers: {
             'Content-Type': 'application/json'
@@ -108,7 +108,7 @@ export const adminService = {
 
       // Verificar firma en el servidor
       const authResponse = await fetch(
-        `http://localhost:8080/api/admin/verify-signature`,
+        `http://localhost:3333/api/admin/verify-signature`,
         {
           method: 'POST',
           headers: {
@@ -178,7 +178,7 @@ export const adminService = {
       }
 
       const response = await fetch(
-        `http://localhost:8080/api/admin/profile`,
+        `http://localhost:3333/api/admin/profile`,
         {
           headers: {
             'Content-Type': 'application/json',

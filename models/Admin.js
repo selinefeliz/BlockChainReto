@@ -38,9 +38,10 @@ const adminSchema = new mongoose.Schema({
   }
 });
 
-// Método para comparar contraseñas
-adminSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+const bcrypt = require('bcryptjs');
+
+AdminSchema.methods.comparePassword = function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Middleware para hashear la contraseña antes de guardar

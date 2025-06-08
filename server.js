@@ -35,8 +35,16 @@ app.use('/api/elections', electionRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Basic route
-app.get('/', (req, res) => {
-  res.json({ message: 'Blockchain Voting Platform API is running' });
+// Ruta básica para /api (útil para pruebas y evitar 404)
+app.get('/api', (req, res) => {
+  res.json({ 
+    message: 'API de Blockchain Voting Platform funcionando correctamente',
+    endpoints: [
+      '/api/auth',
+      '/api/admin',
+      '/api/elections'
+    ]
+  });
 });
 
 // Error handling middleware

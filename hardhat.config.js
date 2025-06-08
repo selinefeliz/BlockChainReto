@@ -1,3 +1,4 @@
+
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
@@ -6,17 +7,37 @@ require("@nomiclabs/hardhat-ethers");
 require("dotenv").config();
 
 module.exports = {
-  solidity: "0.8.17",
+  solidity: {
+    version: "0.8.17",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200
+      },
+    },
+  },
   networks: {
     hardhat: {
-      chainId: 1337
+      chainId: 1337,
+      mining: {
+        auto: true,
+        interval: 5000
+      }
     },
-    // Add other networks as needed (testnet, mainnet, etc.)
+    localhost: {
+      url: "http://127.0.0.1:8545"
+    },
+    // Puedes agregar otras redes aquí si lo necesitas
   },
   paths: {
-    artifacts: "./artifacts",
     sources: "./contracts",
+    tests: "./test",
     cache: "./cache",
-    tests: "./test"
-  }
+    artifacts: "./artifacts"
+  },
+  mocha: {
+    timeout: 40000
+  },
 };
+
+

@@ -11,7 +11,7 @@ const app = express();
 const PORT = process.env.PORT || 3333;
 
 // MongoDB connection string
-const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/blockchain_voting';
+const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/blockchain_voting';
 
 // Connect to MongoDB
 mongoose.connect(mongoURI, {
@@ -78,9 +78,9 @@ AdminSchema.pre('save', async function(next) {
   }
 });
 
-// Method to compare passwords
-AdminSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+
+AdminSchema.methods.comparePassword = function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 // Method to generate JWT token

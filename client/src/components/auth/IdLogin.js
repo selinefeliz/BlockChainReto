@@ -1,20 +1,20 @@
+
 import React, { useState, useContext, useEffect } from 'react';
-import { Card, Button, Container, Row, Col, Alert, Form, InputGroup } from 'react-bootstrap';
+import { Card, Button, Container, Row, Col, Form, InputGroup } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import AuthContext from '../../context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { ethers } from 'ethers';
 
-const IdLogin = () => {
+const IdLogin = ({ onLoginSuccess }) => {
   const { t } = useTranslation();
   const { isAuthenticated } = useContext(AuthContext);
   const [cedula, setCedula] = useState('');
   const [isValid, setIsValid] = useState(false);
   const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Si el usuario ya está autenticado, redirigir a la página principal
     if (isAuthenticated) {
       navigate('/');
     }
@@ -22,25 +22,19 @@ const IdLogin = () => {
 
   // Validar formato de la cédula
   const validateCedula = (value) => {
-    // Eliminar guiones y espacios
     const cleanValue = value.replace(/[-\s]/g, '');
-    // Verificar que solo contiene números
     if (!/^\d+$/.test(cleanValue)) {
       return false;
     }
-    // Verificar que comienza con 012 o 402 y tiene exactamente 11 dígitos
     const regex = /^(012|402)\d{8}$/;
     return regex.test(cleanValue) && cleanValue.length === 11;
   };
 
   const handleCedulaChange = (e) => {
-    // Solo permitir números, guiones y espacios
     const value = e.target.value.replace(/[^0-9\-\s]/g, '');
     setCedula(value);
-    
-    // Limpiar la cédula para la validación
     const cleanValue = value.replace(/[-\s]/g, '');
-    
+
     if (value.trim() === '') {
       setErrors({ cedula: t('auth.id_required') });
       setIsValid(false);
@@ -56,26 +50,37 @@ const IdLogin = () => {
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    if (!isValid) {
-      return;
+  const handleConnectWallet = async () => {
+    try {
+      if (!window.ethereum) {
+        alert('MetaMask no detectado. Instala la extensión y recarga la página.');
+        return;
+      }
+
+      // 1. Verifica si ya hay cuentas conectadas
+      let accounts = await window.ethereum.request({ method: 'eth_accounts' });
+
+      // 2. Si no hay cuentas, solicita conexión (esto abre MetaMask)
+      if (!accounts || accounts.length === 0) {
+        accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      }
+
+      if (!accounts || accounts.length === 0) {
+        alert('No se encontró ninguna cuenta en MetaMask.');
+        return;
+      }
+
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+      const address = await signer.getAddress();
+      onLoginSuccess(address, provider, signer);
+    } catch (error) {
+      if (error.code === 4001) {
+        alert('Debes aprobar la conexión en MetaMask.');
+      } else {
+        alert('Error conectando con MetaMask: ' + (error.message || error));
+      }
     }
-    
-    setIsSubmitting(true);
-    
-    // Limpiar la cédula antes de enviarla
-    const cleanCedula = cedula.replace(/[-\s]/g, '');
-    
-    console.log('Enviando cédula al siguiente paso:', cleanCedula);
-    
-    // Aquí continuamos al siguiente paso para la autenticación con MetaMask
-    navigate('/connect-wallet', { 
-      state: { 
-        cedula: cleanCedula 
-      } 
-    });
   };
 
   return (
@@ -91,8 +96,7 @@ const IdLogin = () => {
                   {t('auth.id_verification_prompt')}
                 </p>
               </div>
-              
-              <Form onSubmit={handleSubmit}>
+              <Form>
                 <Form.Group className="mb-4">
                   <Form.Label>Coloque su cédula</Form.Label>
                   <InputGroup>
@@ -115,15 +119,14 @@ const IdLogin = () => {
                     {t('auth.id_format_help')}
                   </Form.Text>
                 </Form.Group>
-                
-                <Button 
-                  variant="primary" 
-                  size="lg" 
-                  type="submit"
+                <Button
+                  variant="success"
+                  size="lg"
                   className="w-100 mt-3"
-                  disabled={!isValid || isSubmitting}
+                  onClick={handleConnectWallet}
+                  disabled={!isValid}
                 >
-                  {isSubmitting ? t('auth.verifying') : t('auth.continue')}
+                  Conectar con MetaMask
                 </Button>
               </Form>
             </Card.Body>

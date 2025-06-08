@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
 import { toast } from 'react-toastify';
+
 
 // Import components
 import Navbar from './components/layout/Navbar';
@@ -27,11 +28,18 @@ import Footer from './components/layout/Footer';
 import AuthContext from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
 
+// Import contracts ABI
+
+import VotingSystem_WithToken from './abis/VotingSystem_WithToken.json';
+import VotingToken from './abis/VotingToken.json';
+
 // Import styles
 import './App.css';
 
-// Import utilities
-import { getContractInstance } from './utils/contractUtils';
+// Utilidades
+const getContractInstance = (address, abi, signer) => {
+  return new ethers.Contract(address, abi, signer);
+};
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -41,9 +49,11 @@ function App() {
   const [provider, setProvider] = useState(null);
   const [signer, setSigner] = useState(null);
   const [contract, setContract] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [tokenContract, setTokenContract] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  // Define logout function first to avoid reference issues
+  // Logout
   const logout = useCallback(() => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_address');
@@ -52,51 +62,77 @@ function App() {
     setUserAddress(null);
     setUserName(null);
     setIsAdmin(false);
-  }, []);
+    setContract(null);
+    setTokenContract(null);
+    setProvider(null);
+    setSigner(null);
+    toast.info('Sesión cerrada');
+    navigate('/');
+  }, [navigate]);
 
-  // Define initEthereumProvider using useCallback to prevent recreating it on each render
+  // Inicializar conexión con Ethereum y contratos
   const initEthereumProvider = useCallback(async () => {
     try {
-      // Check if MetaMask is installed
       if (window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner();
-        
-        setProvider(provider);
-        setSigner(signer);
-        
-        // Initialize contract instance
-        const contractInstance = await getContractInstance(provider, signer);
-        setContract(contractInstance);
-        
-        // Listen for account changes
+        const ethProvider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const ethSigner = ethProvider.getSigner();
+        const address = await ethSigner.getAddress();
+
+        setProvider(ethProvider);
+        setSigner(ethSigner);
+        setUserAddress(address);
+        setUserName(address.substring(0, 6) + '...' + address.substring(address.length - 4));
+
+        // Inicializa contratos
+        const votingContract = getContractInstance(
+          process.env.REACT_APP_VOTING_ADDRESS,
+          VotingSystem_WithToken.abi,
+          ethSigner
+        );
+        const tokenContractInstance = getContractInstance(
+          process.env.REACT_APP_TOKEN_ADDRESS,
+          VotingToken.abi,
+          ethSigner
+        );
+        setContract(votingContract);
+        setTokenContract(tokenContractInstance);
+
+        // Verifica si es admin
+        const adminAddress = await votingContract.admin();
+        if (address.toLowerCase() === adminAddress.toLowerCase()) {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
+
+        setIsAuthenticated(true);
+
+        // Listeners de eventos de wallet
         window.ethereum.on('accountsChanged', (accounts) => {
           if (accounts.length === 0) {
-            // User disconnected their wallet
             logout();
-          } else if (isAuthenticated) {
-            // User switched accounts while logged in, require re-authentication
-            toast.info("Wallet account changed. Please log in again.");
-            logout();
+          } else {
+            window.location.reload();
           }
         });
-        
-        // Listen for chain changes
         window.ethereum.on('chainChanged', () => {
           window.location.reload();
         });
+
+        toast.success('Conexión a la blockchain y contratos exitosa');
       } else {
-        toast.error("MetaMask not detected. Please install MetaMask to use this application.");
+        toast.error('MetaMask no detectado. Instala MetaMask para usar la app.');
       }
     } catch (error) {
-      console.error('Error initializing Ethereum provider:', error);
-      toast.error('Failed to connect to blockchain network');
+      console.error('Error inicializando Ethereum:', error);
+      toast.error('Error conectando con la blockchain');
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, logout]);
-  
-  // Login function defined before useEffect
+  }, [logout]);
+
+  // Login manual (si usas login por JWT además de wallet)
   const login = useCallback((address, token, name) => {
     localStorage.setItem('auth_token', token);
     localStorage.setItem('user_address', address);
@@ -104,55 +140,97 @@ function App() {
     setIsAuthenticated(true);
     setUserAddress(address);
     setUserName(name || 'Usuario');
-    
-    // Check if user is admin
+    // Verifica admin
     const adminAddress = process.env.REACT_APP_ADMIN_ADDRESS;
     if (adminAddress && address.toLowerCase() === adminAddress.toLowerCase()) {
       setIsAdmin(true);
     }
   }, []);
 
-  // useEffect hook after all the functions are defined
+  // Efecto de autenticación y contratos
   useEffect(() => {
-    // Check if user is already authenticated (e.g., token exists)
     const token = localStorage.getItem('auth_token');
     const storedAddress = localStorage.getItem('user_address');
     const storedName = localStorage.getItem('user_name');
-    
+
     if (token && storedAddress) {
       setIsAuthenticated(true);
       setUserAddress(storedAddress);
       setUserName(storedName || 'Usuario');
-      
-      // Check if user is admin (in a real app, this might be a role in JWT)
       const adminAddress = process.env.REACT_APP_ADMIN_ADDRESS;
       if (adminAddress && storedAddress.toLowerCase() === adminAddress.toLowerCase()) {
         setIsAdmin(true);
       }
     }
-    
-    // Initialize Ethereum provider
-    initEthereumProvider();
-  }, [initEthereumProvider]);
-  // Protected route component
+  }, []);
+  const handleLoginSuccess = useCallback(async (address, provider, signer) => {
+    setLoading(true);
+    setProvider(provider);
+    setSigner(signer);
+    setUserAddress(address);
+    setUserName(address.substring(0, 6) + '...' + address.substring(address.length - 4));
+  
+    try {
+      const votingContract = new ethers.Contract(
+        process.env.REACT_APP_VOTING_ADDRESS,
+        VotingSystem_WithToken.abi,
+        signer
+      );
+      const tokenContractInstance = new ethers.Contract(
+        process.env.REACT_APP_TOKEN_ADDRESS,
+        VotingToken.abi,
+        signer
+      );
+      setContract(votingContract);
+      setTokenContract(tokenContractInstance);
+  
+      // Verifica admin
+      const adminAddress = await votingContract.admin();
+      setIsAdmin(address.toLowerCase() === adminAddress.toLowerCase());
+      setIsAuthenticated(true);
+      toast.success('Sesión iniciada y wallet conectada');
+      navigate('/'); // O la ruta a la que quieras redirigir
+
+    } catch (error) {
+      toast.error('Error cargando contratos');
+      console.log("VOTING ADDRESS:", process.env.REACT_APP_VOTING_ADDRESS);
+console.log("VOTING ABI:", VotingSystem_WithToken.abi);
+console.log("TOKEN ADDRESS:", process.env.REACT_APP_TOKEN_ADDRESS);
+console.log("TOKEN ABI:", VotingToken.abi);
+console.log("Signer:", signer);
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate]);
+
+  // Rutas protegidas
   const ProtectedRoute = ({ children, adminOnly = false }) => {
     if (!isAuthenticated) {
       return <Navigate to="/id-login" />;
     }
-    
     if (adminOnly && !isAdmin) {
       return <Navigate to="/" />;
     }
-    
     return children;
   };
 
   if (loading) {
-    return <div className="app-loading">Loading blockchain connection...</div>;
+    return <div className="app-loading">Cargando conexión blockchain...</div>;
   }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, userAddress, userName, isAdmin, login, logout, provider, signer, contract }}>
+    <AuthContext.Provider value={{
+      isAuthenticated,
+      userAddress,
+      userName,
+      isAdmin,
+      login,
+      logout,
+      provider,
+      signer,
+      contract,
+      tokenContract
+    }}>
       <AdminProvider>
         <div className="app">
           <Navbar />
@@ -160,24 +238,20 @@ function App() {
             <Routes>
               {/* Rutas públicas */}
               <Route path="/" element={<Home />} />
-              <Route path="/id-login" element={<IdLogin />} />
+              <Route path="/id-login" element={<IdLogin onLoginSuccess={handleLoginSuccess} />} />
               <Route path="/connect-wallet" element={<ConnectWallet />} />
               <Route path="/login" element={<Login />} />
               <Route path="/elections" element={<ElectionList />} />
               <Route path="/elections/:id" element={<ElectionDetails />} />
               <Route path="/elections/:id/results" element={<ElectionResults />} />
-              
               {/* Ruta protegida para votantes */}
               <Route path="/elections/:id/vote" element={
                 <ProtectedRoute>
                   <VotingInterface />
                 </ProtectedRoute>
               } />
-              
-              {/* Rutas de administrador con sistema separado de autenticación */}
+              {/* Rutas de administrador */}
               <Route path="/admin-login" element={<AdminLogin />} />
-              
-              {/* Rutas protegidas de administrador */}
               <Route path="/admin" element={
                 <AdminRoute element={<AdminDashboard />} />
               } />

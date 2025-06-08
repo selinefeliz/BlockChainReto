@@ -15,7 +15,7 @@ const AdminLogin = () => {
   useEffect(() => {
     // Verificar si ya hay una sesión activa
     if (adminService.hasActiveSession()) {
-      navigate('/admin/dashboard');
+      navigate('/admin');
     }
   }, [navigate]);
 
@@ -46,7 +46,7 @@ const AdminLogin = () => {
       }
       
       toast.success('Inicio de sesión exitoso');
-      navigate('/admin/dashboard');
+      navigate('/admin');
     } catch (error) {
       console.error('Error de login:', error);
       setError(error.message || 'Error en la autenticación');
@@ -68,7 +68,7 @@ const AdminLogin = () => {
       }
       
       toast.success('Inicio de sesión exitoso');
-      navigate('/admin/dashboard');
+      navigate('/admin');
     } catch (error) {
       console.error('Error de login con MetaMask:', error);
       setError(error.message || 'Error en la autenticación con MetaMask');
@@ -97,7 +97,7 @@ const AdminLogin = () => {
                 <Tab eventKey="credentials" title="Credenciales">
                   <Form onSubmit={handleCredentialsLogin}>
                     <Alert variant="info" className="mb-3">
-                      Para iniciar sesión como administrador, use: <strong>katriel</strong>
+                      Iniciar sesión como administrador
                     </Alert>
                     <Form.Group className="mb-3">
                       <Form.Label>Usuario</Form.Label>
