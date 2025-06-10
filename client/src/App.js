@@ -3,7 +3,6 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ethers } from 'ethers';
 import { toast } from 'react-toastify';
 
-
 // Import components
 import Navbar from './components/layout/Navbar';
 import Home from './components/pages/Home';
@@ -23,13 +22,13 @@ import AdminRoute from './components/routing/AdminRoute';
 import VotingInterface from './components/voting/VotingInterface';
 import ElectionResults from './components/elections/ElectionResults';
 import Footer from './components/layout/Footer';
+import ManageCandidates from './components/admin/ManageCandidates';
 
 // Import context
 import AuthContext from './context/AuthContext';
 import { AdminProvider } from './context/AdminContext';
 
 // Import contracts ABI
-
 import VotingSystem_WithToken from './abis/VotingSystem_WithToken.json';
 import VotingToken from './abis/VotingToken.json';
 
@@ -194,10 +193,10 @@ function App() {
     } catch (error) {
       toast.error('Error cargando contratos');
       console.log("VOTING ADDRESS:", process.env.REACT_APP_VOTING_ADDRESS);
-console.log("VOTING ABI:", VotingSystem_WithToken.abi);
-console.log("TOKEN ADDRESS:", process.env.REACT_APP_TOKEN_ADDRESS);
-console.log("TOKEN ABI:", VotingToken.abi);
-console.log("Signer:", signer);
+      console.log("VOTING ABI:", VotingSystem_WithToken.abi);
+      console.log("TOKEN ADDRESS:", process.env.REACT_APP_TOKEN_ADDRESS);
+      console.log("TOKEN ABI:", VotingToken.abi);
+      console.log("Signer:", signer);
     } finally {
       setLoading(false);
     }
@@ -251,25 +250,16 @@ console.log("Signer:", signer);
                 </ProtectedRoute>
               } />
               {/* Rutas de administrador */}
+              <Route path="/admin/voters" element={<AdminRoute element={<ManageVoters />} />} />
+              <Route path="/admin/candidates" element={<AdminRoute element={<ManageCandidates />} />} />
+              <Route path="/admin/create-election" element={<AdminRoute element={<CreateElection />} />} />
+              <Route path="/admin/edit-election/:electionId" element={<AdminRoute element={<EditElection />} />} />
+              <Route path="/admin/elections/:electionId" element={<AdminRoute element={<ElectionDetailAdmin />} />} />
+              <Route path="/admin/election/:electionId/voters" element={<AdminRoute element={<ManageVoters />} />} />
+              <Route path="/admin/election/:electionId/statistics" element={<AdminRoute element={<ElectionStatistics />} />} />
+              <Route path="/admin" element={<AdminRoute element={<AdminDashboard />} />} />
+              <Route path="/admin/dashboard" element={<AdminRoute element={<AdminDashboard />} />} />
               <Route path="/admin-login" element={<AdminLogin />} />
-              <Route path="/admin" element={
-                <AdminRoute element={<AdminDashboard />} />
-              } />
-              <Route path="/admin/create-election" element={
-                <AdminRoute element={<CreateElection />} />
-              } />
-              <Route path="/admin/edit-election/:electionId" element={
-                <AdminRoute element={<EditElection />} />
-              } />
-              <Route path="/admin/elections/:electionId" element={
-                <AdminRoute element={<ElectionDetailAdmin />} />
-              } />
-              <Route path="/admin/election/:electionId/voters" element={
-                <AdminRoute element={<ManageVoters />} />
-              } />
-              <Route path="/admin/election/:electionId/statistics" element={
-                <AdminRoute element={<ElectionStatistics />} />
-              } />
             </Routes>
           </main>
           <Footer />

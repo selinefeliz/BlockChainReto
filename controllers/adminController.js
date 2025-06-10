@@ -6,72 +6,56 @@ const crypto = require('crypto');
 const adminNonceStore = new Map();
 
 // Login administrador con credenciales
-exports.login = async (req, res) => {
+exports.login = async (req, res, next) => {
   try {
     const { username, password } = req.body;
+    console.log('Intento de login:', { username, password });
 
-    // Validar datos de entrada
-    if (!username || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Se requiere nombre de usuario y contraseña' 
-      });
-    }
+    // Busca el admin en minúsculas
+    const admin = await Admin.findOne({ username: username.toLowerCase() });
+    console.log('Admin encontrado:', admin);
 
-    // Buscar administrador
-    const admin = await Admin.findOne({ username });
     if (!admin) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Credenciales inválidas' 
-      });
+      console.log('No existe admin');
+      return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
     }
 
-    // Verificar contraseña
     const isMatch = await admin.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Credenciales inválidas' 
+    console.log('Password match:', isMatch);
+
+    if (isMatch) {
+      // Generar token
+      const token = jwt.sign(
+        {
+          id: admin._id,
+          username: admin.username,
+          name: admin.name,
+          role: 'admin',
+          permissions: admin.permissions
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '12h' }
+      );
+    
+      // Respuesta exitosa
+      return res.json({
+        success: true,
+        message: 'Login exitoso',
+        token,
+        admin: {
+          id: admin._id,
+          username: admin.username,
+          name: admin.name,
+          permissions: admin.permissions
+        }
       });
     }
 
-    // Actualizar último login
-    admin.lastLogin = Date.now();
-    await admin.save();
+    // RESPONDE SI EL PASSWORD NO COINCIDE
+    return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
 
-    // Generar token
-    const token = jwt.sign(
-      { 
-        id: admin._id, 
-        username: admin.username,
-        name: admin.name,
-        role: 'admin',
-        permissions: admin.permissions
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '12h' }
-    );
-
-    // Respuesta exitosa
-    res.json({
-      success: true,
-      message: 'Login exitoso',
-      token,
-      admin: {
-        id: admin._id,
-        username: admin.username,
-        name: admin.name,
-        permissions: admin.permissions
-      }
-    });
   } catch (error) {
-    console.error('Error en login de administrador:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error de servidor', 
-      error: error.message 
-    });
+    next(new Error('Error en login de administrador'));
   }
 };
 

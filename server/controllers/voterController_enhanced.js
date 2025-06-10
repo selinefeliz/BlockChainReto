@@ -416,8 +416,7 @@ const importVoters = async (req, res, next) => {
     const { voters, format } = req.body;
     
     if (!voters || !Array.isArray(voters)) {
-      return next(new AppError('Formato de datos invá
-lido', 400));
+      return next(new AppError('Formato de datos inválido', 400));
     }
     
     // Verificar límite máximo para importación

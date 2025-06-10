@@ -8,17 +8,13 @@ const dotenv = require('dotenv');
 const path = require('path');
 const Admin = require('../models/Admin');
 
-// Cargar variables de entorno
+// Cargar variables de entorno desde el .env raíz
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 // Configurar conexión a MongoDB
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/blockchain_voting', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
-    
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/voting-platform');
     console.log(`MongoDB conectado: ${conn.connection.host}`);
     return conn;
   } catch (error) {
@@ -31,19 +27,19 @@ const connectDB = async () => {
 const createInitialAdmin = async () => {
   try {
     const connection = await connectDB();
-    
+
     // Verificar si ya existe un administrador
     const existingAdmin = await Admin.findOne({ username: 'katriel' });
-    
+
     if (existingAdmin) {
       console.log('Ya existe un administrador con el usuario "katriel"');
-      
+
       // Preguntar si se desea restablecer la contraseña
       const readline = require('readline').createInterface({
         input: process.stdin,
         output: process.stdout
       });
-      
+
       readline.question('¿Desea restablecer la contraseña? (s/n): ', async (answer) => {
         if (answer.toLowerCase() === 's') {
           // Actualizar contraseña
@@ -53,9 +49,9 @@ const createInitialAdmin = async () => {
         } else {
           console.log('No se realizaron cambios');
         }
-        
+
         readline.close();
-        await connection.disconnect();
+        await mongoose.disconnect();
         process.exit(0);
       });
     } else {
@@ -75,20 +71,21 @@ const createInitialAdmin = async () => {
           canManageAdmins: true
         }
       };
-      
+
       const admin = new Admin(adminData);
       await admin.save();
-      
+
       console.log('Administrador inicial creado exitosamente:');
       console.log(`- Nombre: ${admin.name}`);
       console.log(`- Usuario: ${admin.username}`);
       console.log(`- Contraseña: VotingAdmin2023`);
-      
-      await connection.disconnect();
+
+      await mongoose.disconnect();
       process.exit(0);
     }
   } catch (error) {
     console.error(`Error al crear administrador inicial: ${error.message}`);
+    await mongoose.disconnect();
     process.exit(1);
   }
 };

@@ -5,12 +5,12 @@ require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
 const electionRoutes = require('./routes/elections');
-const adminRoutes = require('./routes/admin');
+const adminRoutes = require('./server/routes/admin');
+const userWalletRoutes = require('./server/routes/userWallet');
 
 const app = express();
 
 // Middleware
-// Configuración CORS flexible para desarrollo
 app.use(cors({
   origin: function (origin, callback) {
     // Permitir cualquier origen en desarrollo
@@ -29,12 +29,12 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/voting-pl
 .then(() => console.log('MongoDB Connected'))
 .catch(err => console.log('MongoDB Connection Error:', err));
 
-// Routes
+// --- RUTAS PRINCIPALES ---
 app.use('/api/auth', authRoutes);
 app.use('/api/elections', electionRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/wallet', userWalletRoutes);
 
-// Basic route
 // Ruta básica para /api (útil para pruebas y evitar 404)
 app.get('/api', (req, res) => {
   res.json({ 
@@ -42,15 +42,10 @@ app.get('/api', (req, res) => {
     endpoints: [
       '/api/auth',
       '/api/admin',
-      '/api/elections'
+      '/api/elections',
+      '/api/wallet'
     ]
   });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!', error: err.message });
 });
 
 // Verificación básica de funcionamiento
@@ -58,11 +53,15 @@ app.get('/test', (req, res) => {
   res.json({ message: 'Server is working correctly' });
 });
 
+// --- MANEJO DE ERRORES (siempre al final) ---
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!', error: err.message });
+});
+
 // Start server
 const PORT = 3333; // Puerto fijo para evitar conflictos
-
-// Escuchar explícitamente en todas las interfaces
-const server = app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on http://localhost:${PORT}`);
   console.log(`Test the connection by visiting http://localhost:${PORT}/test`);
 });

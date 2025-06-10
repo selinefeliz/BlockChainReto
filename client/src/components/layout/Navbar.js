@@ -14,6 +14,12 @@ const AppNavbar = () => {
     navigate('/');
   };
 
+  // Formatea el address para mostrarlo resumido
+  const formatAddress = (address) => {
+    if (!address) return '';
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
   return (
     <Navbar bg="dark" variant="dark" expand="lg" className="mb-4">
       <Container>
@@ -30,19 +36,27 @@ const AppNavbar = () => {
               <Nav.Link as={Link} to="/admin">{t('navbar.admin')}</Nav.Link>
             )}
           </Nav>
-          <Nav>
+          <Nav className="ms-auto align-items-center">
             {isAuthenticated ? (
               <>
-                <Navbar.Text className="me-3">
-                  <span className="fw-bold">{userName}</span>
-                </Navbar.Text>
-                <Navbar.Text className="me-3">
-                  <span className="text-light">{userAddress}</span>
-                </Navbar.Text>
-                <Button variant="outline-light" onClick={handleLogout}>{t('navbar.logout')}</Button>
+                {userName && (
+                  <Navbar.Text className="me-3">
+                    <span className="fw-bold">{userName}</span>
+                  </Navbar.Text>
+                )}
+                {userAddress && (
+                  <Navbar.Text className="me-3">
+                    <span className="text-light">{formatAddress(userAddress)}</span>
+                  </Navbar.Text>
+                )}
+                <Button variant="outline-light" onClick={handleLogout}>
+                  {t('navbar.logout')}
+                </Button>
               </>
             ) : (
-              <Button as={Link} to="/login" variant="outline-light">{t('navbar.connect')}</Button>
+              <Button as={Link} to="/login" variant="outline-light">
+                {t('navbar.connect')}
+              </Button>
             )}
           </Nav>
         </Navbar.Collapse>

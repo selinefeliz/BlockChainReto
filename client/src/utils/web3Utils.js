@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import { toast } from 'react-toastify';
+import Web3 from "web3";
 
 /**
  * Detecta y configura el proveedor de web3 (MetaMask)
@@ -213,4 +214,18 @@ export const isWalletConnected = async () => {
 export const formatAddress = (address, startLength = 6, endLength = 4) => {
   if (!address) return '';
   return `${address.substring(0, startLength)}...${address.substring(address.length - endLength)}`;
+};
+
+
+/**
+ * Devuelve una instancia de Web3 conectada a la wallet del usuario (MetaMask)
+ */
+export const getWeb3 = () => {
+  if (window.ethereum) {
+    return new Web3(window.ethereum);
+  } else if (window.web3) {
+    return new Web3(window.web3.currentProvider);
+  } else {
+    throw new Error("No se detectó una wallet compatible con Ethereum");
+  }
 };

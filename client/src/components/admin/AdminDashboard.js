@@ -5,9 +5,11 @@ import AdminContext from '../../context/AdminContext';
 import { formatTimestamp, formatAddress, isElectionActive, hasElectionEnded } from '../../utils/contractUtils';
 import { toast } from 'react-toastify';
 import StatsDashboard from './stats/StatsDashboard';
+import VotingTokenABI from '../../abis/VotingToken.json';
+import { getWeb3 } from '../../utils/web3Utils';
+import axios from 'axios';
 
 const AdminDashboard = () => {
-  // Eliminamos la variable t ya que no la estamos usando
   const [elections, setElections] = useState([]);
   const [voterStats, setVoterStats] = useState({ totalRegistered: 0, totalVoted: 0 });
   const [loading, setLoading] = useState(true);
@@ -16,142 +18,163 @@ const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const { isAdminAuthenticated, adminPermissions } = useContext(AdminContext);
   const navigate = useNavigate();
+  const [users, setUsers] = useState([]);
+  const [adminAddress, setAdminAddress] = useState('');
+  const [tokenLoading, setTokenLoading] = useState(false);
 
+  // Fetch elections from backend
   const fetchElections = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // En lugar de hacer peticiones a la API, usamos datos de ejemplo
-      console.log('Cargando datos de ejemplo para el panel de administración');
-      
-      // Ejemplo de elecciones
-      const mockElections = [
-        {
-          id: '1',
-          title: 'Elección Municipal 2025',
-          description: 'Elección para alcalde y concejales',
-          startTime: Math.floor(Date.now() / 1000) - 86400, // Ayer
-          endTime: Math.floor(Date.now() / 1000) + 86400 * 7, // Una semana desde ahora
-          totalVotes: 156,
-          candidateCount: 5,
-          resultsFinalized: false
-        },
-        {
-          id: '2',
-          title: 'Presupuesto Participativo',
-          description: 'Votación para decidir el uso de fondos municipales',
-          startTime: Math.floor(Date.now() / 1000) - 86400 * 30, // Hace 30 días
-          endTime: Math.floor(Date.now() / 1000) - 86400, // Ayer
-          totalVotes: 243,
-          candidateCount: 3,
-          resultsFinalized: false
-        },
-        {
-          id: '3',
-          title: 'Consulta Ciudadana',
-          description: 'Opinión sobre nuevas políticas de transporte público',
-          startTime: Math.floor(Date.now() / 1000) - 86400 * 60, // Hace 60 días
-          endTime: Math.floor(Date.now() / 1000) - 86400 * 30, // Hace 30 días
-          totalVotes: 412,
-          candidateCount: 2,
-          resultsFinalized: true
-        }
-      ];
-      
-      setElections(mockElections);
-      
-      // Estadísticas de ejemplo
-      const totalRegistered = 1500;
-      const totalVoted = 811;
-      
-      setVoterStats({ totalRegistered, totalVoted });
-      
       setError('');
-      console.log('Datos de ejemplo cargados correctamente');
+      const res = await axios.get('/api/admin/elections', {
+        headers: {
+          'x-auth-token': localStorage.getItem('adminToken')
+        }
+      });
+      setElections(res.data.data || []);
     } catch (error) {
-      console.error('Error cargando datos de ejemplo:', error);
-      setError('Error al cargar los datos de ejemplo. Por favor, intenta de nuevo.');
+      setError('Error al cargar las elecciones');
+      console.error('Error fetching elections:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch voter statistics
+  const fetchVoterStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const res = await axios.get('/api/admin/statistics/voters', {
+        headers: {
+          'x-auth-token': localStorage.getItem('adminToken')
+        }
+      });
+      setVoterStats(res.data.data || { totalRegistered: 0, totalVoted: 0 });
+    } catch (error) {
+      setError('Error al cargar las estadísticas de votantes');
+      console.error('Error fetching voter stats:', error);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    // Redirect if not authenticated as admin
+    fetchUsers();
+    fetchVoterStats();
+    getAdminAddress();
+  }, [isAdminAuthenticated, adminPermissions, navigate, fetchElections, fetchVoterStats]);
+
+  // Fetch connected wallet users (if relevant)
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/wallet/list');
+      const data = await res.json();
+      setUsers(data.users || []);
+    } catch (error) {
+      toast.error('Error cargando usuarios conectados');
+    }
+  };
+
+  // Get admin wallet address (if relevant)
+  const getAdminAddress = async () => {
+    try {
+      const web3 = await getWeb3();
+      const accounts = await web3.eth.getAccounts();
+      setAdminAddress(accounts[0]);
+    } catch (error) {
+      setAdminAddress('');
+    }
+  };
+
+  const VOTING_TOKEN_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+
+  const assignToken = async (userAddress) => {
+    setTokenLoading(true);
+    try {
+      const web3 = await getWeb3();
+      const contract = new web3.eth.Contract(VotingTokenABI, VOTING_TOKEN_ADDRESS);
+      await contract.methods.transfer(userAddress, web3.utils.toWei('1', 'ether')).send({ from: adminAddress });
+      // Marca en backend que ese usuario ya tiene token
+      await fetch('/api/wallet/mark-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: userAddress })
+      });
+      fetchUsers();
+      toast.success('Token asignado correctamente');
+    } catch (error) {
+      toast.error('Error asignando token: ' + (error.message || error));
+    }
+    setTokenLoading(false);
+  };
+
+  // Redirección y permisos
+  useEffect(() => {
     if (!isAdminAuthenticated) {
       navigate('/admin/login');
       return;
     }
-    
-    // Check if admin has permissions to view dashboard
     if (!adminPermissions.canViewDashboard) {
       toast.error('No tienes permisos para acceder al panel de administración');
       navigate('/');
       return;
     }
-    
     fetchElections();
   }, [isAdminAuthenticated, adminPermissions, navigate, fetchElections]);
 
+  // Finalizar elección (API real)
   const handleEndElection = async (electionId) => {
     try {
       setActionLoading(true);
-      
-      // Simulación de finalización de elección
-      console.log('Finalizando elección con ID:', electionId);
-      
-      // Simular tiempo de procesamiento
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Actualizar las elecciones localmente
-      setElections(prevElections => {
-        return prevElections.map(election => {
-          if (election.id === electionId) {
-            return {
-              ...election,
-              endTime: Math.floor(Date.now() / 1000) // Establecer fin al momento actual
-            };
-          }
-          return election;
-        });
+      const token = localStorage.getItem('adminToken');
+      await axios.put(`/api/admin/elections/${electionId}`, {
+        endTime: Math.floor(Date.now() / 1000)
+      }, {
+        headers: { 'x-auth-token': token }
       });
-      
       toast.success('Elección finalizada correctamente');
+      fetchElections();
     } catch (error) {
-      console.error('Error al finalizar la elección:', error);
-      toast.error('Error al finalizar la elección. Por favor, intenta de nuevo.');
+      toast.error('Error al finalizar la elección');
     } finally {
       setActionLoading(false);
     }
   };
 
+  // Finalizar resultados (API real)
   const handleFinalizeResults = async (electionId) => {
     try {
       setActionLoading(true);
-      
-      // Simulación de finalización de resultados
-      console.log('Finalizando resultados de elección con ID:', electionId);
-      
-      // Simular tiempo de procesamiento
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Actualizar las elecciones localmente
-      setElections(prevElections => {
-        return prevElections.map(election => {
-          if (election.id === electionId) {
-            return {
-              ...election,
-              resultsFinalized: true
-            };
-          }
-          return election;
-        });
+      const token = localStorage.getItem('adminToken');
+      await axios.put(`/api/admin/elections/${electionId}`, {
+        resultsFinalized: true
+      }, {
+        headers: { 'x-auth-token': token }
       });
-      
       toast.success('Resultados finalizados correctamente');
+      fetchElections();
     } catch (error) {
-      console.error('Error al finalizar resultados:', error);
-      toast.error('Error al finalizar los resultados. Por favor, intenta de nuevo.');
+      toast.error('Error al finalizar los resultados');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ELIMINAR ELECCIÓN (API real)
+  const handleDeleteElection = async (electionId) => {
+    if (!window.confirm('¿Seguro que quieres eliminar esta elección?')) return;
+    try {
+      setActionLoading(true);
+      const token = localStorage.getItem('adminToken');
+      await axios.delete(`/api/admin/elections/${electionId}`, {
+        headers: { 'x-auth-token': token }
+      });
+      toast.success('Elección eliminada');
+      fetchElections();
+    } catch (error) {
+      toast.error('Error al eliminar la elección');
     } finally {
       setActionLoading(false);
     }
@@ -167,9 +190,7 @@ const AdminDashboard = () => {
   return (
     <Container fluid className="py-4">
       <h2 className="mb-4">Panel de Administración</h2>
-      
       {error && <Alert variant="danger">{error}</Alert>}
-      
       <Tabs 
         activeKey={activeTab} 
         onSelect={(key) => setActiveTab(key)} 
@@ -218,7 +239,6 @@ const AdminDashboard = () => {
               </Card>
             </Col>
           </Row>
-          
           <Card className="shadow-sm mb-4">
             <Card.Header>
               <div className="d-flex justify-content-between align-items-center">
@@ -257,18 +277,18 @@ const AdminDashboard = () => {
                   </thead>
                   <tbody>
                     {elections.map((election) => (
-                      <tr key={election.id}>
-                        <td>{election.id}</td>
+                      <tr key={election._id || election.id}>
+                        <td>{election._id || election.id}</td>
                         <td>{election.title}</td>
                         <td>{getStatusBadge(election)}</td>
                         <td>{formatTimestamp(election.startTime)}</td>
                         <td>{formatTimestamp(election.endTime)}</td>
-                        <td>{election.totalVotes}</td>
+                        <td>{election.totalVotes || 0}</td>
                         <td>
                           <div className="d-flex">
                             <Button
                               as={Link}
-                              to={`/admin/elections/${election.id}`}
+                              to={`/admin/elections/${election._id || election.id}`}
                               variant="outline-primary"
                               size="sm"
                               className="me-2"
@@ -276,29 +296,36 @@ const AdminDashboard = () => {
                             >
                               <i className="fas fa-eye"></i>
                             </Button>
-                            
                             {isElectionActive(election) && (
                               <Button
                                 variant="outline-warning"
                                 size="sm"
                                 className="me-2"
-                                onClick={() => handleEndElection(election.id)}
+                                onClick={() => handleEndElection(election._id || election.id)}
                                 disabled={actionLoading || !adminPermissions.canEndElection}
                               >
                                 <i className="fas fa-stop-circle"></i>
                               </Button>
                             )}
-                            
                             {hasElectionEnded(election) && !election.resultsFinalized && (
                               <Button
                                 variant="outline-success"
                                 size="sm"
-                                onClick={() => handleFinalizeResults(election.id)}
+                                className="me-2"
+                                onClick={() => handleFinalizeResults(election._id || election.id)}
                                 disabled={actionLoading || !adminPermissions.canFinalizeResults}
                               >
                                 <i className="fas fa-check-double"></i>
                               </Button>
                             )}
+                            <Button
+                              variant="outline-danger"
+                              size="sm"
+                              onClick={() => handleDeleteElection(election._id || election.id)}
+                              disabled={actionLoading || !adminPermissions.canDeleteElection}
+                            >
+                              <i className="fas fa-trash"></i>
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -322,7 +349,6 @@ const AdminDashboard = () => {
               )}
             </Card.Body>
           </Card>
-          
           <Card className="shadow-sm">
             <Card.Header>
               <h5 className="mb-0">Enlaces Rápidos</h5>
@@ -380,12 +406,54 @@ const AdminDashboard = () => {
               </Row>
             </Card.Body>
           </Card>
+          <Card className="shadow-sm mt-4">
+            <Card.Header>
+              <h5 className="mb-0">Usuarios conectados (Wallets)</h5>
+            </Card.Header>
+            <Card.Body>
+              {users.length === 0 ? (
+                <div className="text-muted">No hay usuarios conectados aún.</div>
+              ) : (
+                <Table responsive hover>
+                  <thead>
+                    <tr>
+                      <th>Dirección</th>
+                      <th>¿Tiene token?</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.map(u => (
+                      <tr key={u.address}>
+                        <td>{formatAddress ? formatAddress(u.address) : u.address}</td>
+                        <td>
+                          {u.hasToken ? <Badge bg="success">Sí</Badge> : <Badge bg="secondary">No</Badge>}
+                        </td>
+                        <td>
+                          {!u.hasToken && (
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              disabled={tokenLoading}
+                              onClick={() => assignToken(u.address)}
+                            >
+                              Asignar token
+                            </Button>
+                          )}
+                          {u.hasToken && <span>✔️</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              )}
+            </Card.Body>
+          </Card>
         </Tab>
         <Tab eventKey="statistics" title="Estadísticas">
           <StatsDashboard />
         </Tab>
       </Tabs>
-      
       <Row className="mb-4">
         <Col>
           <Card className="shadow-sm">
@@ -395,7 +463,7 @@ const AdminDashboard = () => {
             <Card.Body>
               <div className="ps-2">
                 <div className="activity-stream">
-                  {/* En una aplicación real, obtendríamos esto de un registro de auditoría */}
+                  {/* En una aplicación real, obtendrías esto de un registro de auditoría */}
                   <div className="activity-item d-flex align-items-start">
                     <div className="activity-icon me-3">
                       <i className="fas fa-check-circle text-success"></i>
@@ -408,56 +476,7 @@ const AdminDashboard = () => {
                       <p className="mb-0">Nueva elección "Presupuesto Municipal 2025" fue creada</p>
                     </div>
                   </div>
-                  <div className="activity-item d-flex align-items-start mt-3">
-                    <div className="activity-icon me-3">
-                      <i className="fas fa-user-plus text-primary"></i>
-                    </div>
-                    <div className="flex-grow-1">
-                      <div className="d-flex justify-content-between">
-                        <strong>Votantes registrados</strong>
-                        <small className="text-muted">hace 3 horas</small>
-                      </div>
-                      <p className="mb-0">5 nuevos votantes fueron registrados para la elección "Concejo Municipal 2025"</p>
-                    </div>
-                  </div>
-                  <div className="activity-item d-flex align-items-start mt-3">
-                    <div className="activity-icon me-3">
-                      <i className="fas fa-vote-yea text-info"></i>
-                    </div>
-                    <div className="flex-grow-1">
-                      <div className="d-flex justify-content-between">
-                        <strong>Voto registrado</strong>
-                        <small className="text-muted">hace 5 horas</small>
-                      </div>
-                      <p className="mb-0">
-                        Nuevo voto registrado para "Elección de Junta Escolar" desde {formatAddress("0x1234567890abcdef1234567890abcdef12345678")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="activity-item d-flex align-items-start mt-3">
-                    <div className="activity-icon me-3">
-                      <i className="fas fa-flag-checkered text-warning"></i>
-                    </div>
-                    <div className="flex-grow-1">
-                      <div className="d-flex justify-content-between">
-                        <strong>Elección finalizada</strong>
-                        <small className="text-muted">hace 1 día</small>
-                      </div>
-                      <p className="mb-0">Elección "Propuesta Jardín Comunitario" fue marcada como finalizada</p>
-                    </div>
-                  </div>
-                  <div className="activity-item d-flex align-items-start mt-3">
-                    <div className="activity-icon me-3">
-                      <i className="fas fa-chart-pie text-success"></i>
-                    </div>
-                    <div className="flex-grow-1">
-                      <div className="d-flex justify-content-between">
-                        <strong>Resultados finalizados</strong>
-                        <small className="text-muted">hace 2 días</small>
-                      </div>
-                      <p className="mb-0">Resultados para "Votación Extensión Biblioteca" fueron finalizados</p>
-                    </div>
-                  </div>
+                  {/* ...más actividades de ejemplo o reales... */}
                 </div>
               </div>
             </Card.Body>

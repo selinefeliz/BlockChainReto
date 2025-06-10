@@ -22,11 +22,17 @@ const Home = () => {
                 {t('home.connect_button')}
               </Button>
             )}
-            <Button as={Link}
-  to="/admin-login"
-  variant="secondary" size="lg" className="mt-3">
-  Acceso Administrador
-</Button>
+            {!isAuthenticated && !isAdmin && (
+  <Button
+    as={Link}
+    to="/admin-login"
+    variant="secondary"
+    size="lg"
+    className="mt-3"
+  >
+    Acceso Administrador
+  </Button>
+)}
           </div>
         </Col>
       </Row>

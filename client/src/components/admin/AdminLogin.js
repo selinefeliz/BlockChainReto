@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Card, Button, Container, Row, Col, Form, Tabs, Tab, Alert, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { adminService } from '../../services/adminService';
+import AdminContext from '../../context/AdminContext';
 
 const AdminLogin = () => {
   const [activeTab, setActiveTab] = useState('credentials');
@@ -12,20 +12,17 @@ const AdminLogin = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  // Usa el método del contexto
+  const { isAdminAuthenticated, adminLoading, adminLogin } = useContext(AdminContext);
+
   useEffect(() => {
-    // Verificar si ya hay una sesión activa
-    if (adminService.hasActiveSession()) {
+    if (!adminLoading && isAdminAuthenticated) {
       navigate('/admin');
     }
-  }, [navigate]);
+  }, [isAdminAuthenticated, adminLoading, navigate]);
 
-  const handleUsernameChange = (e) => {
-    setUsername(e.target.value);
-  };
-
-  const handlePasswordChange = (e) => {
-    setPassword(e.target.value);
-  };
+  const handleUsernameChange = (e) => setUsername(e.target.value);
+  const handlePasswordChange = (e) => setPassword(e.target.value);
 
   const handleCredentialsLogin = async (e) => {
     e.preventDefault();
@@ -39,40 +36,19 @@ const AdminLogin = () => {
     }
 
     try {
-      const result = await adminService.login(username, password);
-      
+      // Usa el método del contexto para login
+      const result = await adminLogin(username, password);
+
       if (!result.success) {
         throw new Error(result.error || 'Error de autenticación');
       }
-      
+
       toast.success('Inicio de sesión exitoso');
-      navigate('/admin');
+      navigate('/admin'); // Redirige inmediatamente después del login exitoso
     } catch (error) {
       console.error('Error de login:', error);
       setError(error.message || 'Error en la autenticación');
       toast.error(error.message || 'Error en la autenticación');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleMetaMaskLogin = async () => {
-    setIsLoading(true);
-    setError('');
-
-    try {
-      const result = await adminService.loginWithMetaMask();
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Error de autenticación con MetaMask');
-      }
-      
-      toast.success('Inicio de sesión exitoso');
-      navigate('/admin');
-    } catch (error) {
-      console.error('Error de login con MetaMask:', error);
-      setError(error.message || 'Error en la autenticación con MetaMask');
-      toast.error(error.message || 'Error en la autenticación con MetaMask');
     } finally {
       setIsLoading(false);
     }
@@ -88,7 +64,6 @@ const AdminLogin = () => {
             </Card.Header>
             <Card.Body className="p-4">
               {error && <Alert variant="danger">{error}</Alert>}
-              
               <Tabs
                 activeKey={activeTab}
                 onSelect={(k) => setActiveTab(k)}
@@ -109,7 +84,6 @@ const AdminLogin = () => {
                         disabled={isLoading}
                       />
                     </Form.Group>
-                    
                     <Form.Group className="mb-4">
                       <Form.Label>Contraseña</Form.Label>
                       <Form.Control
@@ -120,7 +94,6 @@ const AdminLogin = () => {
                         disabled={isLoading}
                       />
                     </Form.Group>
-                    
                     <Button
                       variant="primary"
                       type="submit"
@@ -145,52 +118,7 @@ const AdminLogin = () => {
                     </Button>
                   </Form>
                 </Tab>
-                
-                <Tab eventKey="metamask" title="MetaMask">
-                  <div className="text-center mb-4">
-                    <img
-                      src="https://metamask.io/images/metamask-fox.svg"
-                      alt="MetaMask"
-                      style={{ height: '80px' }}
-                      className="mb-3"
-                    />
-                    <p className="mb-4">
-                      Inicie sesión usando su wallet de administrador conectada a MetaMask.
-                    </p>
-                    
-                    <Button
-                      variant="warning"
-                      className="w-100"
-                      onClick={handleMetaMaskLogin}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Spinner
-                            as="span"
-                            animation="border"
-                            size="sm"
-                            role="status"
-                            aria-hidden="true"
-                            className="me-2"
-                          />
-                          Conectando...
-                        </>
-                      ) : (
-                        <>
-                          <img
-                            src="https://metamask.io/images/metamask-fox.svg"
-                            alt="MetaMask"
-                            style={{ height: '24px', marginRight: '10px' }}
-                          />
-                          Conectar con MetaMask
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </Tab>
               </Tabs>
-              
               <div className="mt-4 text-center">
                 <p className="text-muted">
                   Panel exclusivo para administradores. Si no es administrador, por favor vuelva a la{' '}

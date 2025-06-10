@@ -16,23 +16,23 @@ export const AdminProvider = ({ children }) => {
     const checkAdminSession = async () => {
       try {
         setAdminLoading(true);
-        
-        // Verificar si hay token almacenado
+  
         const hasSession = adminService.hasActiveSession();
         if (!hasSession) {
           setIsAdminAuthenticated(false);
+          setAdminDetails('', '', '', {});
           return;
         }
-
-        // Obtener información del perfil
+  
         const result = await adminService.getProfile();
         if (!result.success) {
           console.error('Error al verificar sesión de administrador:', result.error);
-          adminLogout();
+          setIsAdminAuthenticated(false);
+          setAdminDetails('', '', '', {});
+          adminService.logout(); // Limpia el localStorage
           return;
         }
-
-        // Sesión válida
+  
         setAdminDetails(
           result.admin.name,
           result.admin.username,
@@ -42,12 +42,14 @@ export const AdminProvider = ({ children }) => {
         setIsAdminAuthenticated(true);
       } catch (error) {
         console.error('Error al verificar sesión de administrador:', error);
-        adminLogout();
+        setIsAdminAuthenticated(false);
+        setAdminDetails('', '', '', {});
+        adminService.logout();
       } finally {
         setAdminLoading(false);
       }
     };
-
+  
     checkAdminSession();
   }, []);
 
@@ -60,6 +62,7 @@ export const AdminProvider = ({ children }) => {
         return { success: false, error: result.error };
       }
       
+      localStorage.setItem('adminToken', result.token);
       setAdminDetails(
         result.admin.name,
         result.admin.username,
@@ -75,35 +78,36 @@ export const AdminProvider = ({ children }) => {
     }
   };
 
-  // Iniciar sesión con MetaMask
-  const adminLoginWithMetaMask = async () => {
-    try {
-      const result = await adminService.loginWithMetaMask();
+  // // Iniciar sesión con MetaMask
+  // const adminLoginWithMetaMask = async () => {
+  //   try {
+  //     const result = await adminService.loginWithMetaMask();
       
-      if (!result.success) {
-        return { success: false, error: result.error };
-      }
+  //     if (!result.success) {
+  //       return { success: false, error: result.error };
+  //     }
       
-      setAdminDetails(
-        result.admin.name,
-        result.admin.username,
-        result.address || '',
-        result.admin.permissions || {}
-      );
-      setIsAdminAuthenticated(true);
+  //     setAdminDetails(
+  //       result.admin.name,
+  //       result.admin.username,
+  //       result.address || '',
+  //       result.admin.permissions || {}
+  //     );
+  //     setIsAdminAuthenticated(true);
       
-      return { success: true };
-    } catch (error) {
-      console.error('Error en login de administrador con MetaMask:', error);
-      return { success: false, error: error.message || 'Error de autenticación' };
-    }
-  };
+  //     return { success: true };
+  //   } catch (error) {
+  //     console.error('Error en login de administrador con MetaMask:', error);
+  //     return { success: false, error: error.message || 'Error de autenticación' };
+  //   }
+  // };
 
   // Cerrar sesión de administrador
   const adminLogout = () => {
     adminService.logout();
     setIsAdminAuthenticated(false);
     setAdminDetails('', '', '', {});
+    localStorage.removeItem('adminToken');
   };
 
   // Función auxiliar para actualizar los detalles del administrador
@@ -124,7 +128,6 @@ export const AdminProvider = ({ children }) => {
         adminPermissions,
         adminLoading,
         adminLogin,
-        adminLoginWithMetaMask,
         adminLogout
       }}
     >

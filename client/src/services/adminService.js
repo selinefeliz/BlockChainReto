@@ -12,15 +12,8 @@ export const adminService = {
    */
   login: async (username, password) => {
     try {
-      console.log('Iniciando login de administrador con:', { username });
-      
-      // Usando el nuevo puerto 3333 para evitar conflictos
-      const API_URL = 'http://localhost:3333';
-
-      console.log('Usando API URL:', API_URL);
-      
       const response = await fetch(
-        `${API_URL}/api/admin/login`,
+        `/api/admin/login`,
         {
           method: 'POST',
           headers: {
@@ -28,21 +21,17 @@ export const adminService = {
             'Accept': 'application/json'
           },
           body: JSON.stringify({ username, password }),
-          mode: 'cors' // Establecer explicitamente el modo CORS
+          mode: 'cors'
         }
       );
 
-      console.log('Respuesta del servidor:', { status: response.status });
-      
       if (!response.ok) {
         const errorData = await response.json();
-        console.log('Error del servidor:', errorData);
         return { success: false, error: errorData.message || 'Error de autenticación' };
       }
-      
+
       const data = await response.json();
-      console.log('Datos de respuesta:', data);
-      
+
       if (!data.success) {
         return { success: false, error: data.message || 'Error de autenticación' };
       }
@@ -84,7 +73,7 @@ export const adminService = {
 
       // Obtener nonce del servidor
       const nonceResponse = await fetch(
-        `http://localhost:3333/api/admin/nonce`,
+        `/api/admin/nonce`,
         {
           headers: {
             'Content-Type': 'application/json'
@@ -108,7 +97,7 @@ export const adminService = {
 
       // Verificar firma en el servidor
       const authResponse = await fetch(
-        `http://localhost:3333/api/admin/verify-signature`,
+        `/api/admin/verify-signature`,
         {
           method: 'POST',
           headers: {
@@ -154,8 +143,7 @@ export const adminService = {
    * @returns {boolean}
    */
   hasActiveSession: () => {
-    const token = localStorage.getItem('admin_token');
-    return !!token;
+    return !!localStorage.getItem('admin_token');
   },
 
   /**
@@ -178,7 +166,7 @@ export const adminService = {
       }
 
       const response = await fetch(
-        `http://localhost:3333/api/admin/profile`,
+        `/api/admin/profile`,
         {
           headers: {
             'Content-Type': 'application/json',

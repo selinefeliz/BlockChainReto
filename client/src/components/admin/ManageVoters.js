@@ -10,7 +10,7 @@ import { isElectionActive, hasElectionEnded } from '../../utils/contractUtils';
 const ManageVoters = () => {
   const { t } = useTranslation();
   const { electionId } = useParams();
-  const { isAuthenticated, isAdmin, contract, signer } = useContext(AuthContext);
+  const { isAuthenticated, isAdmin } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const [election, setElection] = useState(null);
@@ -33,7 +33,6 @@ const ManageVoters = () => {
       navigate('/');
       return;
     }
-    
     fetchElectionAndVoters();
   }, [isAuthenticated, isAdmin, navigate, electionId]);
 
@@ -54,44 +53,35 @@ const ManageVoters = () => {
     try {
       setLoading(true);
       setError('');
-      
       // Fetch election details
       const electionResponse = await fetch(
         `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/elections/${electionId}`,
         {
           headers: {
-            'x-auth-token': localStorage.getItem('auth_token')
+            'x-auth-token': localStorage.getItem('adminToken')
           }
         }
       );
-      
       const electionData = await electionResponse.json();
-      
       if (!electionData.success) {
         throw new Error(electionData.message || t('admin.voters.election_fetch_error'));
       }
-      
       setElection(electionData.election);
-      
       // Fetch voters for this election
       const votersResponse = await fetch(
         `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/elections/${electionId}/voters`,
         {
           headers: {
-            'x-auth-token': localStorage.getItem('auth_token')
+            'x-auth-token': localStorage.getItem('adminToken')
           }
         }
       );
-      
       const votersData = await votersResponse.json();
-      
       if (!votersData.success) {
         throw new Error(votersData.message || t('admin.voters.voters_fetch_error'));
       }
-      
       setVoters(votersData.voters || []);
       setFilteredVoters(votersData.voters || []);
-      
     } catch (error) {
       console.error('Error fetching election voters:', error);
       setError(error.message || t('admin.voters.fetch_error'));
@@ -110,36 +100,28 @@ const ManageVoters = () => {
       toast.error(t('admin.voters.invalid_address'));
       return;
     }
-
     try {
       setActionLoading(true);
-      
-      // Add voter using API
       const response = await fetch(
         `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/elections/${electionId}/voters`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-auth-token': localStorage.getItem('auth_token')
+            'x-auth-token': localStorage.getItem('adminToken')
           },
           body: JSON.stringify({
             voterAddress: newVoterAddress
           })
         }
       );
-      
       const data = await response.json();
-      
       if (!data.success) {
         throw new Error(data.message || t('admin.voters.add_error'));
       }
-      
       toast.success(t('admin.voters.add_success'));
       setNewVoterAddress('');
       setShowAddModal(false);
-      
-      // Refresh voters list
       fetchElectionAndVoters();
     } catch (error) {
       console.error('Error adding voter:', error);
@@ -150,52 +132,40 @@ const ManageVoters = () => {
   };
 
   const handleBulkAddVoters = async () => {
-    // Parse addresses (comma or newline separated)
     const addressesArray = bulkAddresses.split(/[\s,]+/)
       .map(addr => addr.trim())
       .filter(addr => addr.length > 0);
-
-    // Validate addresses
     const invalidAddresses = addressesArray.filter(addr => !validateEthereumAddress(addr));
     if (invalidAddresses.length > 0) {
       toast.error(t('admin.voters.some_invalid_addresses'));
       return;
     }
-
     if (addressesArray.length === 0) {
       toast.error(t('admin.voters.no_addresses'));
       return;
     }
-
     try {
       setActionLoading(true);
-      
-      // Add voters in bulk using API
       const response = await fetch(
         `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/elections/${electionId}/voters/bulk`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-auth-token': localStorage.getItem('auth_token')
+            'x-auth-token': localStorage.getItem('adminToken')
           },
           body: JSON.stringify({
             addresses: addressesArray
           })
         }
       );
-      
       const data = await response.json();
-      
       if (!data.success) {
         throw new Error(data.message || t('admin.voters.bulk_add_error'));
       }
-      
       toast.success(t('admin.voters.bulk_add_success', { count: addressesArray.length }));
       setBulkAddresses('');
       setShowBulkModal(false);
-      
-      // Refresh voters list
       fetchElectionAndVoters();
     } catch (error) {
       console.error('Error adding voters in bulk:', error);
@@ -212,32 +182,24 @@ const ManageVoters = () => {
 
   const handleRemoveVoter = async () => {
     if (!voterToRemove) return;
-
     try {
       setActionLoading(true);
-      
-      // Remove voter using API
       const response = await fetch(
         `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/elections/${electionId}/voters/${voterToRemove.address}`,
         {
           method: 'DELETE',
           headers: {
-            'x-auth-token': localStorage.getItem('auth_token')
+            'x-auth-token': localStorage.getItem('adminToken')
           }
         }
       );
-      
       const data = await response.json();
-      
       if (!data.success) {
         throw new Error(data.message || t('admin.voters.remove_error'));
       }
-      
       toast.success(t('admin.voters.remove_success'));
       setShowRemoveModal(false);
       setVoterToRemove(null);
-      
-      // Refresh voters list
       fetchElectionAndVoters();
     } catch (error) {
       console.error('Error removing voter:', error);
@@ -272,7 +234,6 @@ const ManageVoters = () => {
           {t('admin.voters.title')}
         </Breadcrumb.Item>
       </Breadcrumb>
-      
       {/* Back button */}
       <div className="mb-4">
         <Button 
@@ -298,16 +259,13 @@ const ManageVoters = () => {
           {t('common.back')}
         </Button>
       </div>
-      
       {error && <Alert variant="danger">{error}</Alert>}
-      
       {!canModifyVoters && (
         <Alert variant="warning">
           <i className="fas fa-info-circle me-2"></i>
           {t('admin.voters.cannot_modify')}
         </Alert>
       )}
-      
       <Card className="shadow-sm mb-4">
         <Card.Body>
           <div className="d-flex justify-content-between align-items-center mb-3">
@@ -324,7 +282,6 @@ const ManageVoters = () => {
                 />
               </InputGroup>
             </Form.Group>
-            
             <div>
               <Button
                 variant="success"
@@ -345,7 +302,6 @@ const ManageVoters = () => {
               </Button>
             </div>
           </div>
-          
           <div className="table-responsive">
             <Table striped hover>
               <thead>
@@ -410,7 +366,6 @@ const ManageVoters = () => {
               </tbody>
             </Table>
           </div>
-          
           {filteredVoters.length > 0 && (
             <div className="d-flex justify-content-between align-items-center mt-3">
               <small className="text-muted">
@@ -418,7 +373,6 @@ const ManageVoters = () => {
                   t('admin.voters.showing_filtered', { count: filteredVoters.length, total: voters.length }) : 
                   t('admin.voters.showing_all', { count: voters.length })}
               </small>
-              
               <Button
                 variant="outline-secondary"
                 size="sm"
@@ -431,7 +385,6 @@ const ManageVoters = () => {
           )}
         </Card.Body>
       </Card>
-
       {/* Add Voter Modal */}
       <Modal show={showAddModal} onHide={() => !actionLoading && setShowAddModal(false)} centered>
         <Modal.Header closeButton>
@@ -468,7 +421,6 @@ const ManageVoters = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-
       {/* Bulk Add Voters Modal */}
       <Modal 
         show={showBulkModal} 
@@ -511,7 +463,6 @@ const ManageVoters = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-
       {/* Remove Voter Confirmation Modal */}
       <Modal 
         show={showRemoveModal} 

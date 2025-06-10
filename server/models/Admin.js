@@ -63,11 +63,14 @@ const AdminSchema = new mongoose.Schema({
 
 // Middleware para encriptar la contraseña antes de guardar
 AdminSchema.pre('save', async function(next) {
-  // Solo encriptar si la contraseña se modificó
+  // Solo encriptar si la contraseña se modificó Y NO parece ya un hash
   if (!this.isModified('password')) {
     return next();
   }
-  
+  // Si la contraseña ya es un hash bcrypt (comienza con $2a$ o $2b$), no volver a hashear
+  if (/^\$2[aby]\$/.test(this.password)) {
+    return next();
+  }
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);

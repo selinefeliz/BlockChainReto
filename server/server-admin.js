@@ -11,7 +11,7 @@ const app = express();
 const PORT = process.env.PORT || 3333;
 
 // MongoDB connection string
-const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/blockchain_voting';
+const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/voting-platform';
 
 // Connect to MongoDB
 mongoose.connect(mongoURI, {

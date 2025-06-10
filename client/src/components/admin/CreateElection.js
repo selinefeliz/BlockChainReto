@@ -119,63 +119,44 @@ const CreateElection = () => {
     return true;
   };
   
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
-    try {
-      setLoading(true);
-      setError('');
-      
-      // Calculate timestamps (in seconds for Solidity)
-      const startTimestamp = Math.floor(new Date(`${formData.startDate}T${formData.startTime}`).getTime() / 1000);
-      const endTimestamp = Math.floor(new Date(`${formData.endDate}T${formData.endTime}`).getTime() / 1000);
-      
-      // Filter out incomplete candidate entries
-      const validCandidates = formData.candidates.filter(c => c.name.trim() && c.description.trim());
-      
-      // Create the election using API
-      const token = localStorage.getItem('auth_token');
-      
-      const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/elections`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-auth-token': token
-          },
-          body: JSON.stringify({
-            title: formData.title.trim(),
-            description: formData.description.trim(),
-            startTime: startTimestamp,
-            endTime: endTimestamp,
-            candidates: validCandidates
-          })
-        }
-      );
-      
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to create election');
-      }
-      
-      toast.success('Election created successfully!');
-      
-      // Redirect to the new election's page
-      navigate(`/elections/${data.electionId}`);
-    } catch (error) {
-      console.error('Error creating election:', error);
-      setError(error.message || 'Failed to create election. Please try again.');
-      toast.error(error.message || 'Failed to create election');
-    } finally {
-      setLoading(false);
-    }
-  };
+ const handleSubmit = async (e) => {
+   e.preventDefault();
+   if (!validateForm()) return;
+   try {
+     setLoading(true);
+     setError('');
+     const startTimestamp = Math.floor(new Date(`${formData.startDate}T${formData.startTime}`).getTime() / 1000);
+     const endTimestamp = Math.floor(new Date(`${formData.endDate}T${formData.endTime}`).getTime() / 1000);
+     const validCandidates = formData.candidates.filter(c => c.name.trim() && c.description.trim());
+     const token = localStorage.getItem('adminToken');
+     const response = await fetch(
+       `${process.env.REACT_APP_API_URL || 'http://localhost:3333'}/api/admin/elections`,
+       {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json',
+           'x-auth-token': token
+         },
+         body: JSON.stringify({
+           title: formData.title.trim(),
+           description: formData.description.trim(),
+           startTime: startTimestamp,
+           endTime: endTimestamp,
+           candidates: validCandidates
+         })
+       }
+     );
+     const data = await response.json();
+     if (!data.success) throw new Error(data.message || 'Failed to create election');
+     toast.success('Election created successfully!');
+     navigate('/admin'); // O a la lista de elecciones
+   } catch (error) {
+     setError(error.message || 'Failed to create election. Please try again.');
+     toast.error(error.message || 'Failed to create election');
+   } finally {
+     setLoading(false);
+   }
+ };
   
   return (
     <Container>

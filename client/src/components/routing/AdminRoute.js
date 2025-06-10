@@ -10,26 +10,13 @@ import { Spinner, Container } from 'react-bootstrap';
  * @returns {JSX.Element}
  */
 const AdminRoute = ({ element }) => {
-  const { isAdminAuthenticated, adminLoading } = useContext(AdminContext);
+  const { isAdminAuthenticated } = useContext(AdminContext);
 
-  // Mostrar spinner mientras se verifica la autenticación
-  if (adminLoading) {
-    return (
-      <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: "80vh" }}>
-        <div className="text-center">
-          <Spinner animation="border" variant="primary" />
-          <p className="mt-3">Verificando credenciales de administrador...</p>
-        </div>
-      </Container>
-    );
-  }
-
-  // Redirigir a login de administrador si no está autenticado
   if (!isAdminAuthenticated) {
+    // Redirige al login de admin si no está autenticado
     return <Navigate to="/admin-login" />;
   }
 
-  // Si está autenticado, mostrar el elemento
   return element;
 };
 

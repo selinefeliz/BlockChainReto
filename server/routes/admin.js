@@ -24,7 +24,6 @@ const validateSignatureRequest = (req, res, next) => {
       message: 'Se requieren dirección, firma y mensaje'
     });
   }
-  
   // Simple Ethereum address validation
   const ethAddressPattern = /^0x[a-fA-F0-9]{40}$/;
   if (!ethAddressPattern.test(address)) {
@@ -48,10 +47,8 @@ const adminAuth = async (req, res, next) => {
         message: 'No hay token, autorización denegada'
       });
     }
-    
-    // In a real implementation, you would verify the token here
-    // For now, we'll just trust that the token exists
-    req.user = { id: 'temp-admin-id' };
+    // Aquí deberías verificar el token con JWT en producción
+    req.admin = { id: 'temp-admin-id' }; // para que coincida con el controlador
     next();
   } catch (err) {
     console.error('Error en autenticación:', err);
@@ -102,5 +99,34 @@ router.get('/test', (req, res) => {
     timestamp: new Date()
   });
 });
+
+/**
+ * @route   GET /api/admin/test-endpoint
+ * @desc    Ruta de prueba para depuración
+ * @access  Público
+ */
+router.get('/test-endpoint', (req, res) => {
+  res.json({ success: true, message: 'Admin test endpoint works!' });
+});
+
+// --- ESTADÍSTICAS ---
+router.get('/statistics/dashboard', adminAuth, adminController.getDashboardStats);
+router.get('/statistics/voters', adminAuth, adminController.getVoterStats);
+router.get('/statistics/system', adminAuth, adminController.getSystemStats);
+
+// --- ELECCIONES ---
+router.get('/elections', adminAuth, adminController.listElections);
+router.post('/elections', adminAuth, adminController.createElection);
+router.get('/elections/:id', adminAuth, adminController.getElection);
+router.put('/elections/:id', adminAuth, adminController.updateElection);
+router.delete('/elections/:id', adminAuth, adminController.deleteElection);
+
+// --- VOTANTES ---
+router.get('/voters', adminAuth, adminController.listVoters);
+router.post('/voters', adminAuth, adminController.addVoter);
+router.put('/voters/:id', adminAuth, adminController.updateVoter);
+router.delete('/voters/:id', adminAuth, adminController.deleteVoter);
+
+console.log('Admin routes loaded');
 
 module.exports = router;

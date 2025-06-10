@@ -22,7 +22,7 @@ const Migration = mongoose.model('Migration', MigrationSchema);
 // Clase para gestionar migraciones
 class MigrationManager {
   constructor() {
-    this.mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/blockchain-voting';
+    this.mongoUri = process.env.MONGO_URI || 'mongodb://localhost:27017/voting-platform';
     this.migrationsDir = path.join(__dirname, 'scripts');
     this.verbose = true;
   }
